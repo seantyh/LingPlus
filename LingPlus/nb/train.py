@@ -14,7 +14,7 @@ def update_model(X, y, nfeat):
     X1_sum = tf.assign_add(X1_sum, tf.reduce_sum(X1, 0))
     return [X0_sum, X1_sum]
 
-def train(train_x, train_y):
+def train(train_x, train_y, pY_prior=0.5, smooth_alpha=1):
     nfeat = train_x.shape[1]
     X = tf.placeholder(tf.int32, shape=(None, nfeat), name='dataX')
     y = tf.placeholder(tf.int32, shape=(None, 1), name='dataY')            
@@ -38,5 +38,5 @@ def train(train_x, train_y):
         train_writer.add_summary(summary, row_i)
     # print(sess.run([tf.reduce_sum(model[0]), tf.reduce_sum(model[1])]))
     sess.close()
-    return model
+    return {"params": model, "hypers": {"smooth_alpha": smooth_alpha}}
 

@@ -1,13 +1,19 @@
 import tensorflow as tf
 import numpy as np
+import pdb
 
 def model_predict(model, Xvec):
-    X0_sum = tf.constant(model[0], name="X1sum")
-    X1_sum = tf.constant(model[1], name="X0sum")        
-    pY1 = tf.constant(0.5, dtype=tf.double)
-    alpha = 1
-    X1_param = (X1_sum+alpha)/(tf.reduce_sum(X1_sum)+X1_sum.shape[0]*alpha)
-    X0_param = (X0_sum+alpha)/(tf.reduce_sum(X0_sum)+X0_sum.shape[0]*alpha)
+    params = model["params"]    
+    pY_prior = model["hypers"].get("pY", 0.5)
+    sm_alpha = model["hypers"].get("smooth_alpha", 1)
+    
+    X0_sum = tf.constant(params[0], name="X1sum", dtype=tf.double)
+    X1_sum = tf.constant(params[1], name="X0sum", dtype=tf.double)       
+    pY1 = tf.constant(pY_prior, dtype=tf.double)    
+    alpha = tf.constant(sm_alpha, dtype=tf.double)
+    
+    X1_param = (X1_sum+alpha)/(tf.reduce_sum(X1_sum)+params[0].shape[0]*alpha)
+    X0_param = (X0_sum+alpha)/(tf.reduce_sum(X0_sum)+params[0].shape[0]*alpha)
     Xdbl = tf.to_double(Xvec)    
     p1_nZ_x = tf.pow(X1_param, Xdbl)
     p0_nZ_x = tf.pow(X0_param, Xdbl)    
