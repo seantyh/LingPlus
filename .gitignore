@@ -1,5 +1,8 @@
 *~
 *.swp
 *.tmp
-__pycache__/
 .vscode/tags
+__pycache__/
+*.egg-info/
+
+
