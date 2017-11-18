@@ -7,12 +7,19 @@ import pdb
 
 class TopicWSD:
     
+    class Linkage:
+        Complete = 1
+        Single = 2
+
     def __init__(self, cwn, model, dictionary):
         self.cwn = cwn
         self.sense_data = self.load_sense_data(cwn)
         self.model = model
         self.dictionary = dictionary
         self.sense_alpha = -1
+        self.HELDOUT_IDX = 1
+        self.linkage = TopicWSD.Linkage.Complete
+        self.n_neighbor = 3
 
     def load_sense_data(self, cwn):
         sense_data = cpre.make_example_data(cwn)
@@ -49,17 +56,19 @@ class TopicWSD:
         doc_topics = tu.get_doc_topic_prob(word_list, self.model, self.dictionary)    
         
         anchor_word = []
-        n_neigh = 3
+        n_neigh = self.n_neighbor
         for wpos in range(target_pos-n_neigh, target_pos+n_neigh+1):
+            if wpos < 0 or wpos >= len(word_list): continue
             if wpos == target_pos: continue
-            pos = min(len(word_list)-1, max(0, wpos))        
-            anchor_word.append(word_list[pos])
+            anchor_word.append(word_list[wpos])
 
         return (doc_topics, anchor_word)
 
     def get_compatability(self, ambig_data, ref_data):        
         ambig_theta, ambig_word = self.get_anchor_topics(ambig_data[1], ambig_data[0])
         ref_theta, ref_word = self.get_anchor_topics(ref_data[1], ref_data[0])
+        logging.debug("Ambig anchors: %s", ambig_word)
+        logging.debug("Ref anchors: %s", ref_word)
         if not ref_word or not ambig_word:
             return []
         comp_score = tu.get_word_assoc(ambig_word, ref_word, ref_theta, 
@@ -84,7 +93,7 @@ class TopicWSD:
         return cpre.example_word_list(exdata[1], exdata[0])
 
     def get_disambiguate_refdata(self, lemma):
-        HELDOUT_IDX = 1
+        HELDOUT_IDX = self.HELDOUT_IDX
         try:
             lemma_data = self.sense_data.loc[lemma]
         except IndexError:
@@ -103,6 +112,7 @@ class TopicWSD:
         return ref_list
 
     def word_sense_disambiguate(self, word_list, widx, lemma):
+        logging.debug("Word sense disambiguation: %s, %d", word_list, widx)
         ref_list = self.get_disambiguate_refdata(lemma)
         ambig_data = [widx, word_list]
         n_ref_senses = len(ref_list)
@@ -121,9 +131,14 @@ class TopicWSD:
                 logging.getLogger().debug("-- %s, %s --", senseid, str(ref_data[1]))
 
                 compat_scores = self.get_compatability(ambig_data, ref_data)
-                logscore = np.log(sense_priors[sense_i]) + np.sum(np.log(compat_scores))                
-                log_prob_wassoc = np.logaddexp(log_prob_wassoc, logscore)                
-                logging.getLogger().debug("[%s-%d], logP: %.4f" % (senseid, ex_i, logscore))                
+                if self.linkage == TopicWSD.Linkage.Complete:
+                    logscore = np.log(sense_priors[sense_i]) + np.sum(np.log(compat_scores))
+                    log_prob_wassoc = np.logaddexp(log_prob_wassoc, logscore)                
+                    logging.getLogger().debug("[%s-%d], Complete, logP: %.4f" % (senseid, ex_i, logscore))                
+                elif self.linkage == TopicWSD.Linkage.Single:
+                    logscore = np.sum(np.log(compat_scores))                
+                    log_prob_wassoc = np.max([logscore, log_prob_wassoc])
+                    logging.getLogger().debug("[%s-%d], Single, logP: %.4f" % (senseid, ex_i, logscore))                
             
             log_ptilde_sense[sense_i] = log_prob_wassoc
             logging.getLogger().debug("[%s], logPtilde_sense: %.4f" % (senseid, log_ptilde_sense[sense_i]))

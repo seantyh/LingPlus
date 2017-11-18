@@ -56,5 +56,4 @@ def get_word_assoc(words_y, words_x, theta, model, dictionary):
     for yi in range(len(yidx_vec)):
         logp_vec[yi] = logsumexp(logphi_y[:, yi] + logphi_x_zvec)\
                         - K_words_x    
-        
     return np.exp(logp_vec)
